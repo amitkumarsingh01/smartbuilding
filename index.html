@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IoT Floor Data</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #F5DEB3;
+            color: black;
+            margin: 0;
+            padding: 0;
+        }
+        header {
+            background-color: black;
+            color: white;
+            text-align: center;
+            padding: 10px 0;
+        }
+        .container {
+            padding: 20px;
+        }
+        .floor {
+            border: 2px solid black;
+            margin-bottom: 20px;
+            padding: 15px;
+            background-color: #F8F0E3;
+        }
+        .floor h2 {
+            text-align: center;
+        }
+        .add-floor {
+            display: flex;
+            justify-content: center;
+            margin: 20px 0;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+        table, th, td {
+            border: 1px solid black;
+        }
+        th, td {
+            padding: 10px;
+            text-align: center;
+        }
+        canvas {
+            display: block;
+            margin: 0 auto;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>IoT Floor Monitoring</h1>
+    </header>
+    <div class="container" id="floorContainer">
+        <div class="floor" id="floor0">
+            <h2>Ground Floor</h2>
+            <div class="data-section"></div>
+            <canvas id="chart0"></canvas>
+        </div>
+        <div class="floor" id="floor1">
+            <h2>First Floor</h2>
+            <div class="data-section"></div>
+            <canvas id="chart1"></canvas>
+        </div>
+        <div class="floor" id="floor2">
+            <h2>Second Floor</h2>
+            <div class="data-section"></div>
+            <canvas id="chart2"></canvas>
+        </div>
+    </div>
+    <div class="add-floor">
+        <button onclick="addNewFloor()">Add New Floor</button>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        const apiUrl = "https://api.thingspeak.com/channels/2760395/feeds.json?results=20";
+
+        async function fetchData() {
+            const response = await fetch(apiUrl);
+            return await response.json();
+        }
+
+        function createTable(data) {
+            const table = document.createElement('table');
+            const header = `
+                <tr>
+                    <th>Timestamp</th>
+                    <th>Field1</th>
+                    <th>Field2</th>
+                    <th>Field3</th>
+                    <th>Field4</th>
+                    <th>Field5</th>
+                </tr>
+            `;
+            const rows = data.feeds.map(feed => `
+                <tr>
+                    <td>${new Date(feed.created_at).toLocaleString()}</td>
+                    <td>${feed.field1 || 'N/A'}</td>
+                    <td>${feed.field2 || 'N/A'}</td>
+                    <td>${feed.field3 || 'N/A'}</td>
+                    <td>${feed.field4 || 'N/A'}</td>
+                    <td>${feed.field5 || 'N/A'}</td>
+                </tr>
+            `).join('');
+            table.innerHTML = header + rows;
+            return table;
+        }
+
+        function createGraph(ctx, data) {
+            const labels = data.feeds.map(feed => new Date(feed.created_at).toLocaleString());
+            const datasets = [
+                { label: 'Field1', data: data.feeds.map(feed => parseFloat(feed.field1) || 0), borderColor: 'red', fill: false },
+                { label: 'Field2', data: data.feeds.map(feed => parseFloat(feed.field2) || 0), borderColor: 'blue', fill: false },
+                { label: 'Field3', data: data.feeds.map(feed => parseFloat(feed.field3) || 0), borderColor: 'green', fill: false },
+                { label: 'Field4', data: data.feeds.map(feed => parseFloat(feed.field4) || 0), borderColor: 'purple', fill: false },
+                { label: 'Field5', data: data.feeds.map(feed => parseFloat(feed.field5) || 0), borderColor: 'orange', fill: false },
+            ];
+            new Chart(ctx, {
+                type: 'line',
+                data: { labels, datasets },
+                options: { responsive: true, maintainAspectRatio: false }
+            });
+        }
+
+        async function loadData() {
+            const data = await fetchData();
+            const floors = document.querySelectorAll('.floor');
+            floors.forEach((floor, index) => {
+                const dataSection = floor.querySelector('.data-section');
+                const chart = floor.querySelector('canvas');
+                dataSection.appendChild(createTable(data));
+                createGraph(chart.getContext('2d'), data);
+            });
+        }
+
+        function addNewFloor() {
+            const floorContainer = document.getElementById('floorContainer');
+            const newFloorId = floorContainer.children.length;
+            const newFloor = document.createElement('div');
+            newFloor.className = 'floor';
+            newFloor.id = `floor${newFloorId}`;
+            newFloor.innerHTML = `
+                <h2>Floor ${newFloorId}</h2>
+                <div class="data-section"></div>
+                <canvas id="chart${newFloorId}"></canvas>
+            `;
+            floorContainer.appendChild(newFloor);
+            loadData();
+        }
+
+        loadData();
+    </script>
+</body>
+</html>
